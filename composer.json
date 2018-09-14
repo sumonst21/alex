@@ -1,0 +1,16 @@
+{
+    "name": "aanduque/alex",
+    "description": "A simple bot to deal in crypto-currencies",
+    "type": "project",
+    "require": {
+        "nesbot/carbon": "^2.1",
+        "guzzlehttp/guzzle": "^6.3"
+    },
+    "license": "GPL2",
+    "authors": [
+        {
+            "name": "Arindo Duque",
+            "email": "aanduque@gmail.com"
+        }
+    ]
+}

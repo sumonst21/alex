@@ -2,7 +2,8 @@
 <?php
 
 date_default_timezone_set("America/Sao_Paulo");
-// pcntl_async_signals(true);
+pcntl_async_signals(true);
+declare(ticks = 1);
 
 require 'vendor/autoload.php';
 require 'inc/console.php';
@@ -11,7 +12,18 @@ require 'inc/class-alex-balance.php';
 use Carbon\Carbon;
 use GuzzleHttp\Client;
 
+pcntl_signal(SIGTERM, 'signal_handler');
+pcntl_signal(SIGINT, 'signal_handler');
+
+function signal_handler($signal) {
+
+  Alex::get_instance()->shutdown();
+
+} // end signal_handler;
+
 class Alex {
+
+  public static $instance;
 
   private $version = '1.0.0';
 
@@ -52,6 +64,24 @@ class Alex {
   const STATUS_WAITING_BUY = 1;
 
   const STATUS_WAITING_SELL = 2;
+
+  public static function create_instance($coin, $platform, $live = 0, $limit = false, $frequency = 60) {
+
+    if (null === self::$instance) {
+      
+      self::$instance = new self($coin, $platform, $live, $limit, $frequency);
+
+    } // end if;
+
+    return self::$instance;
+    
+  } // end get_instance;
+
+  public static function get_instance() {
+
+    return self::$instance;
+    
+  } // end get_instance;
 
   public function __construct($coin, $platform, $live = 0, $limit = false, $frequency = 60) {
 
@@ -95,11 +125,6 @@ class Alex {
      */
     $this->balance = $this->get_account_balance();
 
-    /**
-     * Run, Forest, Run!
-     */
-    $this->run();
-
   } // end construct;
 
   public function build_platform($platform, $coin) {
@@ -137,7 +162,11 @@ class Alex {
 
     $this->jump();
 
-    Console::log('- Oi, eu sou Alex!', 'light_green');
+    Console::log(str_repeat('-', 30), 'light_green');
+
+    Console::log(str_pad(" Oi! Eu sou Alex! ", 30, '-', STR_PAD_BOTH), 'light_green');
+
+    Console::log(str_repeat('-', 30), 'light_green');
 
     $this->jump();
     
@@ -321,6 +350,8 @@ class Alex {
 
     if ($comparation->is_above_threshold) {
 
+      Console::bell(2);
+
       echo PHP_EOL;
 
       $this->console_with_time(sprintf('Limite para compra atingido (%s%%), criando ordem de compra...', $this->buy_at[$comparation->which_threshold]), 'light_purple');
@@ -367,6 +398,8 @@ class Alex {
     $this->console_with_time($comparation->message, $this->get_display_color_for_variation($comparation->difference));
 
     if ($comparation->is_above_threshold) {
+
+      Console::bell(2);
 
       echo PHP_EOL;
 
@@ -516,16 +549,15 @@ class Alex {
 
   } // end get_current_value;
 
-  public function call_shutdown($signal) {
-    echo $signal;
-    // if ($signal === SIGINT || $signal === SIGTERM) {
-        $this->shutdown();
-    // }
-  }
+  public function shutdown() {
 
-  private function shutdown() {
+    echo PHP_EOL;
+
+    Console::log('Encerrando atividades...', 'light_blue');
+
+    exit;
     
-  }
+  } // end shutdown;
 
 } // end class Alex;
 
@@ -549,13 +581,14 @@ function start_alex() {
 
   } // end if;
 
-  return new Alex(@$args['coin'], @$args['platform'], @$args['live'], @$args['limit'], @$args['frequency']);
+  Alex::create_instance(@$args['coin'], @$args['platform'], @$args['live'], @$args['limit'], @$args['frequency'])->run();
 
 } // end start_alex;
 
 function print_help() {
 
   Console::log('Eu sou Alex, o robo de trading!', 'light_green');
+
   echo PHP_EOL;
 
   Console::log('Parâmetros disponíveis:', 'light_green');
@@ -579,4 +612,4 @@ function print_help() {
 } // end print_help;
 
 // Run!
-$alex = start_alex();
+start_alex();

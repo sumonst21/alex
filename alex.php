@@ -6,6 +6,7 @@ date_default_timezone_set("America/Sao_Paulo");
 
 require 'vendor/autoload.php';
 require 'inc/console.php';
+require 'inc/class-alex-balance.php';
 
 use Carbon\Carbon;
 use GuzzleHttp\Client;
@@ -31,6 +32,10 @@ class Alex {
   private $sell_at = array(3, -5);
   
   private $buy_at = array(1.5, -6);
+
+  // private $sell_at = array(0.5, -1);
+  
+  // private $buy_at = array(0.5, -2);
   
   private $balance = 1000;
 
@@ -86,6 +91,11 @@ class Alex {
     $this->current_value = $this->first_value = $this->get_coin_value();
 
     /**
+     * Get Account Balance
+     */
+    $this->balance = $this->get_account_balance();
+
+    /**
      * Run, Forest, Run!
      */
     $this->run();
@@ -127,7 +137,7 @@ class Alex {
 
     $this->jump();
 
-    Console::log('Oi, eu sou a Alex!', 'light_green');
+    Console::log('- Oi, eu sou Alex!', 'light_green');
 
     $this->jump();
     
@@ -145,6 +155,13 @@ class Alex {
 
     Console::log(sprintf('Plataforma: %s', $this->platform->title), 'light_green');
 
+    $this->jump();
+
+    Console::log('Balanças Disponíveis:', 'light_green');
+
+    Console::log(sprintf('|- BRL - Disponível: %s, Total: %s', $this->format_value($this->balance->get_coin('brl')->available), $this->format_value($this->balance->get_coin('brl')->total)), 'light_green');
+    Console::log(sprintf('|- %s - Disponível %s, Total: %s', $this->coin, $this->balance->get_coin( strtolower($this->coin) )->available, $this->balance->get_coin( strtolower($this->coin) )->total), 'light_green');
+
   } // end print_header;
 
   public function run() {
@@ -156,7 +173,15 @@ class Alex {
      */
     while(true) {
 
-      $this->run_routines();
+      try {
+        
+        $this->run_routines();
+
+      } catch (Exception $e) {
+
+        $this->console_with_time(sprintf('Erro: %s', $e->getMessage()), 'red');
+
+      } // end try
 
       sleep($this->frequency);
 
@@ -225,7 +250,9 @@ class Alex {
 
   public function get_available_balance() {
 
-    return $balance = $this->balance >= $this->limit ? $this->limit : $this->balance;
+    $brl = $this->balance->get_coin('brl')->available;
+
+    return $balance = $brl >= $this->limit ? $this->limit : $brl;
 
   } // end get_available_balance;
 
@@ -243,7 +270,7 @@ class Alex {
 
       $action_multiplier = 1;
 
-      $quantity = $this->balance_coins;
+      $quantity = $this->balance->get_coin(strtolower($this->coin))->available;
 
     } // end if;
 
@@ -288,6 +315,8 @@ class Alex {
 
     $comparation = $this->fetch_and_compare($this->buy_at);
 
+    if (!$comparation) return;
+
     $this->console_with_time($comparation->message, $this->get_display_color_for_variation($comparation->difference));
 
     if ($comparation->is_above_threshold) {
@@ -307,11 +336,11 @@ class Alex {
         /**
          * TODO: Refetch balance
          */
-        $this->balance = $this->balance + $order->order_price;
+        $this->balance->add_coin('brl', $order->order_price);
         
-        $this->balance_coins = $order->quantity;
+        $this->balance->add_coin(strtolower($this->coin), $order->quantity);
 
-        $this->console_with_time(sprintf('-- Nova Balança: %s', $this->format_value($this->balance)), 'light_purple');
+        $this->console_with_time(sprintf('|- Nova Balança: %s', $this->format_value($this->balance->get_coin('brl')->available)), 'light_purple');
 
          /**
           * Set the new value as the current value
@@ -354,11 +383,11 @@ class Alex {
         /**
          * TODO: Refetch balance
          */
-        $this->balance = $this->balance + $order->order_price;
+        $this->balance->add_coin('brl', $order->order_price);
+        
+        $this->balance->remove_coin(strtolower($this->coin), $order->quantity);
 
-        $this->balance_coins = 0;
-
-        $this->console_with_time(sprintf('-- Nova Balança: %s', $this->format_value($this->balance)), 'light_purple');
+        $this->console_with_time(sprintf('|- Nova Balança: %s', $this->format_value($this->balance->get_coin('brl')->available)), 'light_purple');
 
          /**
           * Set the new value as the current value
@@ -409,6 +438,15 @@ class Alex {
     $new_value = $this->get_coin_value();
 
     /**
+     * Error returning new values
+     */
+    if (!$new_value) {
+
+      return;
+
+    } // end if;
+
+    /**
      * No current value saved
      */
     if (!$this->current_value) {
@@ -416,14 +454,14 @@ class Alex {
       $this->current_value = $new_value;
 
       return (object) array(
-      'previous_value'     => $this->current_value->sell,
-      'new_value'          => $new_value->sell,
-      'ticker'             => $new_value,
-      'difference'         => 0,
-      'is_above_threshold' => false,
-      'which_threshold'    => 0,
-      'message'            => 'Sem valor de referência. Adicionando novo valor...',
-    );
+        'previous_value'     => $this->current_value->sell,
+        'new_value'          => $new_value->sell,
+        'ticker'             => $new_value,
+        'difference'         => 0,
+        'is_above_threshold' => false,
+        'which_threshold'    => 0,
+        'message'            => 'Sem valor de referência. Adicionando novo valor...',
+      );
 
     } // end if;
 
@@ -452,7 +490,29 @@ class Alex {
 
   public function get_coin_value() {
 
-    return $this->platform->ticker();
+    try {
+
+      return $this->platform->ticker();
+
+    } catch(Exception $e) {
+
+      $this->console_with_time(sprintf('Erro: %s', $e->getMessage()), 'red');
+
+    } // end try_catch;
+
+  } // end get_current_value;
+
+  public function get_account_balance() {
+
+    try {
+
+      return $this->platform->get_account_balance();
+
+    } catch(Exception $e) {
+
+      $this->console_with_time(sprintf('Erro: %s', $e->getMessage()), 'red');
+
+    } // end try_catch;
 
   } // end get_current_value;
 

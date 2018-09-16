@@ -71,7 +71,14 @@ class Platform_Default extends Platform {
 
   public function get_account_balance() {
 
-  } // end get_balance;
+    $balance = new Alex_Balance;
+
+    $balance->add_coin('brl', 1000);
+    $balance->add_coin('btc', 0.0038);
+
+    return $balance;
+
+  } // end get_account_balance;
 
   public function get_balance() {
 

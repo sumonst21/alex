@@ -230,7 +230,7 @@ class Alex implements \Serializable {
     /**
      * Set the initial status
      */
-    $this->status = $status;
+    $this->status = is_numeric($status) ? $status : 0;
 
     /**
      * Expending Limit 

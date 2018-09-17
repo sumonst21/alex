@@ -5,6 +5,8 @@ use Symfony\Component\Dotenv\Dotenv;
 
 class Platform_Mercado_Bitcoin extends Platform {
 
+  public $id = 'mercadobitcoin';
+
   public $title = 'Mercado Bitcoin';
 
   public $client;
@@ -65,7 +67,7 @@ class Platform_Mercado_Bitcoin extends Platform {
 
     $results = $this->api->placeBuyOrder(array(
       'coin_pair'   => $this->pair,
-      'quantity'    => $order->quantity,
+      'quantity'    => number_format($order->quantity, 8, '.', ''),
       'limit_price' => $order->limit_price,
     ));
 
@@ -83,7 +85,7 @@ class Platform_Mercado_Bitcoin extends Platform {
 
     $results = $this->api->placeSellOrder(array(
       'coin_pair'   => $this->pair,
-      'quantity'    => $order->quantity,
+      'quantity'    => number_format($order->quantity, 8, '.', ''),
       'limit_price' => $order->limit_price,
     ));
 

@@ -21,43 +21,39 @@ function signal_handler($signal) {
 
 } // end signal_handler;
 
-class Alex {
+class Alex implements \Serializable {
 
-  public static $instance;
+  private static $instance;
 
-  private $version = '1.0.0';
+  public $version = '1.0.0';
 
-  private $live = false;
+  public $live = false;
 
-  private $platform;
+  public $platform;
 
-  private $client;
+  public $coin;
 
-  private $coin;
-
-  private $frequency = 60;
+  public $frequency = 60;
   
-  private $status = 0;
+  public $status = 0;
   
-  private $status_title = 0;
+  public $status_title = 0;
   
-  private $sell_at = array(3, -5);
+  public $sell_at = array(3, -5);
   
-  private $buy_at = array(1.5, -6);
+  public $buy_at = array(1.5, -3);
 
-  // private $sell_at = array(0.5, -1);
+  // public $sell_at = array(0.5, -1);
   
-  // private $buy_at = array(0.5, -2);
+  // public $buy_at = array(0.5, -2);
   
-  private $balance = 1000;
-
-  private $balance_coins = 0;
+  public $balance;
   
-  private $limit = false;
+  public $limit = false;
 
-  private $current_value;
+  public $current_value;
 
-  private $first_value;
+  public $first_value;
 
   const STATUS_INITIAL_BUY = 0;
 
@@ -65,11 +61,11 @@ class Alex {
 
   const STATUS_WAITING_SELL = 2;
 
-  public static function create_instance($coin, $platform, $live = 0, $limit = false, $frequency = 60) {
+  public static function create_instance($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false) {
 
     if (null === self::$instance) {
       
-      self::$instance = new self($coin, $platform, $live, $limit, $frequency);
+      self::$instance = new self($coin, $platform, $live, $limit, $frequency, $buy_at, $sell_at);
 
     } // end if;
 
@@ -77,13 +73,50 @@ class Alex {
     
   } // end get_instance;
 
+  public function serialize() {
+
+    $this->platform = $this->platform->id;
+
+    $data = get_object_vars($this);
+
+    return serialize($data);
+      
+  }
+
+  public function unserialize($data) {
+
+    $data = unserialize($data);
+
+    $alex = self::create_instance(
+      @$data['coin'], 
+      @$data['platform'], 
+      @$data['live'], 
+      @$data['limit'], 
+      @$data['frequency']
+    );
+ 
+    // Set our values
+    if (is_array($data)) {
+
+      foreach ($data as $k => $v) {
+
+        $this->$k = $v;
+
+      } // end foreach;
+
+    } // end if;
+
+    $this->platform = $this->build_platform(($data['platform']), $this->coin);
+
+  } // end unserialize;
+
   public static function get_instance() {
 
     return self::$instance;
     
   } // end get_instance;
 
-  public function __construct($coin, $platform, $live = 0, $limit = false, $frequency = 60) {
+  public function __construct($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false) {
 
     /**
      * Coin
@@ -111,14 +144,25 @@ class Alex {
     $this->limit = is_numeric($limit) ? $limit : 9999999999;
 
     /**
-     * Creates the HTTP client for future requests
+     * Buy and Sell At
      */
-    $this->client = new Client();
+    if ($buy_at) {
+
+      $this->buy_at = $this->get_stop_array($buy_at);
+
+    } // end buy_at;
+
+    if ($sell_at) {
+
+      $this->sell_at = $this->get_stop_array($sell_at);
+
+    } // end buy_at;
 
     /**
      * Get the current Coin Value
      */
-    $this->current_value = $this->first_value = $this->get_coin_value();
+    $this->current_value = $this->get_coin_value();
+    $this->first_value   = $this->current_value;
 
     /**
      * Get Account Balance
@@ -127,11 +171,23 @@ class Alex {
 
   } // end construct;
 
+  public function get_stop_array($string) {
+
+    $values = explode(',', $string);
+
+    return array_map(function($item) {
+
+      return (float) $item;
+
+    }, $values);
+
+  } // end get_stop_array;
+
   public function build_platform($platform, $coin) {
 
-    require 'platforms/class-platform.php';
+    require_once 'platforms/class-platform.php';
 
-    require "platforms/class-platform-{$platform}.php";
+    require_once "platforms/class-platform-{$platform}.php";
 
     return get_platform($coin);
 
@@ -179,6 +235,10 @@ class Alex {
     Console::log(sprintf('Moeda de Negociação: %s', $this->coin), 'light_green');
     
     Console::log(sprintf('Limite: %s', $this->format_value($this->limit)), 'light_green');
+    
+    Console::log(sprintf('Buy: %s', implode(', ', $this->buy_at)), 'light_green');
+
+    Console::log(sprintf('Sell: %s', implode(', ', $this->sell_at)), 'light_green');
     
     Console::log(sprintf('Frequência: %s segundos', $this->frequency), 'light_green');
 
@@ -487,8 +547,8 @@ class Alex {
       $this->current_value = $new_value;
 
       return (object) array(
-        'previous_value'     => $this->current_value->sell,
-        'new_value'          => $new_value->sell,
+        'previous_value'     => $this->current_value->last,
+        'new_value'          => $new_value->last,
         'ticker'             => $new_value,
         'difference'         => 0,
         'is_above_threshold' => false,
@@ -501,16 +561,16 @@ class Alex {
     /**
      * Compare
      */
-    $difference = $this->get_percentage_difference($this->current_value->sell, $new_value->sell);
+    $difference = $this->get_percentage_difference($this->current_value->last, $new_value->last);
 
     return (object) array(
-      'previous_value'     => $this->current_value->sell,
-      'new_value'          => $new_value->sell,
+      'previous_value'     => $this->current_value->last,
+      'new_value'          => $new_value->last,
       'ticker'             => $new_value,
       'difference'         => $difference,
       'is_above_threshold' => $difference >= $compare[0] || $difference <= $compare[1],
       'which_threshold'    => $difference >= $compare[0] ? 0 : 1,
-      'message'            => sprintf('O preço era %s e agora é %s, uma variação de %s%%', $this->format_value($this->current_value->sell), $this->format_value($new_value->sell), number_format($difference, 8)),
+      'message'            => sprintf('O preço era %s e agora é %s, uma variação de %s%%', $this->format_value($this->current_value->last), $this->format_value($new_value->last), number_format($difference, 8)),
     );
 
   } // end fetch_and_compare;
@@ -549,7 +609,27 @@ class Alex {
 
   } // end get_current_value;
 
+  public function save_session() {
+
+    $session_file = 'sessions/last.session';
+
+    $handle = fopen($session_file, 'w');
+
+    $data = self::$instance;
+
+    fwrite($handle, serialize($data));
+
+    fclose($handle);
+
+  } // end freeze_session;
+
   public function shutdown() {
+
+    echo PHP_EOL;
+
+    Console::log('Salvando sessão atual...', 'light_blue');
+
+    $this->save_session();
 
     echo PHP_EOL;
 
@@ -581,7 +661,45 @@ function start_alex() {
 
   } // end if;
 
-  Alex::create_instance(@$args['coin'], @$args['platform'], @$args['live'], @$args['limit'], @$args['frequency'])->run();
+  if (isset($args['last'])) {
+
+    Console::log('Alex: Tentando carregar sessão anterior...', 'light_green');
+
+    if (!file_exists('./sessions/last.session')) {
+
+      Console::log('Falha ao carregar sessão anterior.', 'red');
+
+      exit;
+
+    } // end if;
+
+    $session = file_get_contents('./sessions/last.session');
+
+    try {
+
+      $alex = unserialize($session);
+
+    } catch (Exception $e) {
+
+      Console::log('Falha ao carregar sessão anterior.', 'red');
+
+    } // end if;
+
+  } else {
+
+  $alex = Alex::create_instance(
+    @$args['coin'], 
+    @$args['platform'], 
+    @$args['live'], 
+    @$args['limit'], 
+    @$args['frequency'],
+    @$args['buy_at'],
+    @$args['sell_at']
+  );
+
+  } // end if;
+
+  $alex->run();
 
 } // end start_alex;
 
@@ -599,6 +717,10 @@ function print_help() {
     'limit'     => 'Valor maximo em reais a ser utilizado',
     'live'      => 'Seleciona que ambiente deve ser usado, simulação ou real. Padrão: Simulação (0)',
     'frequency' => 'Muda com que frequência o Ticker deve ser checado. Padrão: 60 segundos',
+    'platform'  => 'Muda a plataforma a ser utilizada para compras',
+    'buy_at'    => 'Seta quando deve comprar',
+    'sell_at'   => 'Seta quando deve vender',
+    'last'      => 'Se presente, retoma a última session. Ignora todos os demais parâmetros',
   );
 
   foreach($params as $name => $desc) {

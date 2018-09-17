@@ -2,9 +2,11 @@
 
 class Platform_Default extends Platform {
 
-  public $base_values;
+  public $id = 'mercadobitcoin';
 
   public $title = 'Padrão (Simulador)';
+
+  public $base_values;
 
   public function init() {
 

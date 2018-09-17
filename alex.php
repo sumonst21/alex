@@ -1,9 +1,11 @@
 #!/usr/local/bin/php
 <?php
-
+/**
+ * Sets the timezine to São Paulo
+ */
 date_default_timezone_set("America/Sao_Paulo");
+
 pcntl_async_signals(true);
-declare(ticks = 1);
 
 require 'vendor/autoload.php';
 require 'inc/console.php';
@@ -12,55 +14,161 @@ require 'inc/class-alex-balance.php';
 use Carbon\Carbon;
 use GuzzleHttp\Client;
 
+/**
+ * Tells PHP we want to catch CLI signals
+ */
 pcntl_signal(SIGTERM, 'signal_handler');
 pcntl_signal(SIGINT, 'signal_handler');
 
+/**
+ * Handles Terminal Signals such as ctrl+c and ctrl+z combinations
+ *
+ * @param int $signal
+ * @return void
+ */
 function signal_handler($signal) {
 
+  /**
+   * Calls the shutdown
+   * @since 1.0.0
+   */
   Alex::get_instance()->shutdown();
 
 } // end signal_handler;
 
 class Alex implements \Serializable {
 
-  private static $instance;
-
-  public $version = '1.0.0';
-
-  public $live = false;
-
-  public $platform;
-
-  public $coin;
-
-  public $frequency = 60;
-  
-  public $status = 0;
-  
-  public $status_title = 0;
-  
-  public $sell_at = array(3, -5);
-  
-  public $buy_at = array(1.5, -3);
-
-  // public $sell_at = array(0.5, -1);
-  
-  // public $buy_at = array(0.5, -2);
-  
-  public $balance;
-  
-  public $limit = false;
-
-  public $current_value;
-
-  public $first_value;
-
-  const STATUS_INITIAL_BUY = 0;
-
-  const STATUS_WAITING_BUY = 1;
-
+  /**
+   * Statuses
+   */
+  const STATUS_INITIAL_BUY  = 0;
+  const STATUS_WAITING_BUY  = 1;
   const STATUS_WAITING_SELL = 2;
 
+  /**
+   * Holds the instance of Alex
+   *
+   * @since 1.0.0
+   * @var Alex
+   */
+  private static $instance;
+
+  /**
+   * Current version of Alex
+   *
+   * @since 1.0.0
+   * @var string
+   */
+  public $version = '1.0.0';
+
+  /**
+   * Is this live
+   *
+   * @since 1.0.0
+   * @var boolean
+   */
+  public $live = false;
+
+  /**
+   * Holds the platform class, once instantiated
+   *
+   * @since 1.0.0
+   * @var Platform
+   */
+  public $platform;
+
+  /**
+   * Coin being traded. BTC, LTC, etc
+   *
+   * @since 1.0.0
+   * @var string
+   */
+  public $coin;
+
+  /**
+   * How frequent we should check for price updates, in seconds
+   *
+   * @since 1.0.0
+   * @var integer
+   */
+  public $frequency = 60;
+  
+  /**
+   * Holds the current status of the bot. The different statuses tell which actions should be run inside the run_routines method
+   *
+   * @since 1.0.0
+   * @var integer
+   */
+  public $status = 0;
+  
+  /**
+   * Keeps track if we just changed status
+   *
+   * @since 1.0.0
+   * @var integer
+   */
+  public $status_title = 0;
+  
+  /**
+   * Sell stop pair. A array containing the values where we should sell our coins
+   *
+   * @since 1.0.0
+   * @var array
+   */
+  public $sell_at = array(3, -5);
+  
+  /**
+   * Buy stop pair. A array containing the values where we should buy our coins
+   *
+   * @since 1.0.0
+   * @var array
+   */
+  public $buy_at = array(1.5, -3);
+  
+  /**
+   * Holds the Alex_Balance instance for control
+   *
+   * @since 1.0.0
+   * @var Alex_Balance
+   */
+  public $balance;
+  
+  /**
+   * Let's suppose you have $3000 on your trading account, but wants Alex to have access to just $200, this is what the limit is for
+   *
+   * @since 1.0.0
+   * @var false|float
+   */
+  public $limit = false;
+
+  /**
+   * Holds the current ticker. Should implement Alex_Ticker
+   *
+   * @since 1.0.0
+   * @var Alex_Ticker
+   */
+  public $current_value;
+
+  /**
+   * Holds the first ticker. Should implement Alex_Ticker
+   *
+   * @since 1.0.0
+   * @var Alex_Ticker
+   */
+  public $first_value;
+
+  /**
+   * Instantiate a new Alex instance
+   *
+   * @param string $coin
+   * @param string $platform
+   * @param integer $live
+   * @param boolean $limit
+   * @param integer $frequency
+   * @param boolean $buy_at
+   * @param boolean $sell_at
+   * @return Alex
+   */
   public static function create_instance($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false) {
 
     if (null === self::$instance) {
@@ -73,49 +181,30 @@ class Alex implements \Serializable {
     
   } // end get_instance;
 
-  public function serialize() {
-
-    $this->platform = $this->platform->id;
-
-    $data = get_object_vars($this);
-
-    return serialize($data);
-      
-  }
-
-  public function unserialize($data) {
-
-    $data = unserialize($data);
-
-    $alex = self::create_instance(
-      @$data['coin'], 
-      @$data['platform'], 
-      @$data['live'], 
-      @$data['limit'], 
-      @$data['frequency']
-    );
- 
-    // Set our values
-    if (is_array($data)) {
-
-      foreach ($data as $k => $v) {
-
-        $this->$k = $v;
-
-      } // end foreach;
-
-    } // end if;
-
-    $this->platform = $this->build_platform(($data['platform']), $this->coin);
-
-  } // end unserialize;
-
+  /**
+   * Returns the current and only Alex instance available
+   *
+   * @since 1.0.0
+   * @return Alex
+   */
   public static function get_instance() {
 
     return self::$instance;
     
   } // end get_instance;
 
+  /**
+   * Constructs Alex, the bot
+   *
+   * @since 1.0.0
+   * @param string  $coin      Uppercase coin symbol, like BTC, LTC, etc
+   * @param string  $platform  Which platform to use, currently we have a simulator (default) and Mercado Bitcoin (mercadobitcoin)
+   * @param integer $live      IF we are in a live environment or not (takes 0 or 1 as parameters)
+   * @param boolean $limit     How much money should the bot negotiate? 
+   * @param integer $frequency How frequently, in seconds, should we call the ticker API
+   * @param boolean $buy_at    Comma-separeted list of stop points to buy
+   * @param boolean $sell_at   Comma-separeted list of stop points to sell
+   */
   public function __construct($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false) {
 
     /**
@@ -171,6 +260,62 @@ class Alex implements \Serializable {
 
   } // end construct;
 
+  /**
+   * Serialize the class so we can take it from where we left it off the last time
+   *
+   * @since 1.0.0
+   * @return string
+   */
+  public function serialize() {
+
+    $this->platform = $this->platform->id;
+
+    $data = get_object_vars($this);
+
+    return serialize($data);
+      
+  } // end serialize;
+
+  /**
+   * Handles the unserialization of Alex once we use last to retrieve the last session
+   *
+   * @param string $data
+   * @return void
+   */
+  public function unserialize($data) {
+
+    $data = unserialize($data);
+
+    $alex = self::create_instance(
+      @$data['coin'], 
+      @$data['platform'], 
+      @$data['live'], 
+      @$data['limit'], 
+      @$data['frequency']
+    );
+ 
+    // Set our values
+    if (is_array($data)) {
+
+      foreach ($data as $k => $v) {
+
+        $this->$k = $v;
+
+      } // end foreach;
+
+    } // end if;
+
+    $this->platform = $this->build_platform(($data['platform']), $this->coin);
+
+  } // end unserialize;
+
+  /**
+   * Gets the stop array string and breaks it up into an array
+   *
+   * @since 1.0.0
+   * @param string $string
+   * @return array
+   */
   public function get_stop_array($string) {
 
     $values = explode(',', $string);
@@ -183,6 +328,16 @@ class Alex implements \Serializable {
 
   } // end get_stop_array;
 
+  /**
+   * Load the necessary platform files and builds an Platform object
+   * 
+   * You can implement your own platforms and put them inside the platforms folder
+   * 
+   * @since 1.0.0 
+   * @param string $platform
+   * @param string $coin
+   * @return Platform
+   */
   public function build_platform($platform, $coin) {
 
     require_once 'platforms/class-platform.php';
@@ -194,8 +349,10 @@ class Alex implements \Serializable {
   } // end build_platform;
 
   /**
-   * Does a little jump of lines
+   * Does a little jump of lines on the console
+   * TODO: move this to the console classe
    *
+   * @since 1.0.0
    * @return void
    */
   public function jump($lines = 1) {
@@ -203,15 +360,32 @@ class Alex implements \Serializable {
     $i = 1;
 
     while($i <= $lines) {
-      echo PHP_EOL;
-      $i++;
-    }
+
+      echo PHP_EOL; $i++;
+
+    } // end while;
 
   } // end jump;
 
   /**
-   * Prints the header of the emitter
+   * Sends a console message with the current time attached to it
+   * TODO: move to Console class
    *
+   * @since 1.0.0
+   * @param string $message
+   * @param string $color
+   * @return void
+   */
+  public function console_with_time($message, $color) {
+
+    Console::log(sprintf('%s - %s', Carbon::now()->format('d-m-Y H:i:s'), $message), $color);
+
+  } // end console_with_time;
+
+  /**
+   * Prints the header Alex to the Console
+   *
+   * @since 1.0.0
    * @return void
    */
   public function print_header() {
@@ -253,8 +427,17 @@ class Alex implements \Serializable {
 
   } // end print_header;
 
+  /**
+   * Main action of the bot, runs the strategy itself
+   *
+   * @since 1.0.0
+   * @return void
+   */
   public function run() {
 
+    /**
+     * Prints the header of Alex
+     */
     $this->print_header();
 
     /**
@@ -264,10 +447,17 @@ class Alex implements \Serializable {
 
       try {
         
+        /**
+         * Call the main routines that walk the various status available
+         */
         $this->run_routines();
 
       } catch (Exception $e) {
 
+        /**
+         * Catch and log exceptions without breaking execution,
+         * We want the bot to run as long as you want before killing it
+         */
         $this->console_with_time(sprintf('Erro: %s', $e->getMessage()), 'red');
 
       } // end try
@@ -278,6 +468,13 @@ class Alex implements \Serializable {
 
   } // end run;
 
+  /**
+   * Gets the label for a given status
+   *
+   * @since 1.0.0
+   * @param string $status
+   * @return string
+   */
   public function get_status_label($status) {
 
     $labels = array(
@@ -290,6 +487,12 @@ class Alex implements \Serializable {
 
   } // end get_status_label;
 
+  /**
+   * Displays the status title only if it was never displayed before, to prevent screen polution
+   *
+   * @since 1.0.0
+   * @return void
+   */
   public function display_status_title() {
 
     if (!$this->status_title) {
@@ -304,6 +507,13 @@ class Alex implements \Serializable {
 
   } // end display_status_title;
 
+  /**
+   * Change the status of the bot and re-sets the display label control
+   *
+   * @since 1.0.0
+   * @param int $status
+   * @return void
+   */
   public function set_status($status) {
 
     $this->status = $status;
@@ -311,20 +521,43 @@ class Alex implements \Serializable {
 
   } // end set_status;
 
+  /**
+   * Returns the current status of the bot
+   *
+   * @since 1.0.0
+   * @return int
+   */
   public function get_status() {
 
     return $this->status;
 
   } // end get_status;
 
+  /**
+   * Holds the routines (tells the bot what to do on each status).
+   * 
+   * In the future we can allow users to implement different buying strategies
+   *
+   * @since 1.0.0
+   * @return void
+   */
   public function run_routines() {
 
+    /**
+     * Check the current status
+     */
     switch ($this->get_status()) {
 
+      /**
+       * Waits for the threshold before doing an initial purchase
+       */
       case self::STATUS_INITIAL_BUY:
         $this->waiting_to_buy();
         break;
 
+      /**
+       * Bot is waiting to buy...
+       */
       case self::STATUS_WAITING_BUY:
         $this->waiting_to_buy();
         break;
@@ -337,6 +570,12 @@ class Alex implements \Serializable {
 
   } // end run_routines;
 
+  /**
+   * Get the available balance in fiat money for purchases, taking the limit into consideration
+   *
+   * @since 1.0.0
+   * @return float
+   */
   public function get_available_balance() {
 
     $brl = $this->balance->get_coin('brl')->available;
@@ -345,6 +584,13 @@ class Alex implements \Serializable {
 
   } // end get_available_balance;
 
+  /**
+   * Creates an Order
+   *
+   * @param string $action Type of the order, buy or sell
+   * @param float  $price
+   * @return object
+   */
   public function build_order($action, $price) {
 
     if ($action == 'buy') {
@@ -373,6 +619,13 @@ class Alex implements \Serializable {
 
   } // end build_order;
 
+  /**
+   * Takes in an order object and sends it over to the platform to handle it, if live mode is on
+   *
+   * @since 1.0.0
+   * @param object $order A valid order object
+   * @return bool
+   */
   public function dispatch($order) {
 
     if ($this->live) {
@@ -394,8 +647,9 @@ class Alex implements \Serializable {
   } // end dispatch;
 
   /**
-   * Handles the initial purchase of coins
+   * Handles the waiting to buy phase of the process
    *
+   * @since 1.0.0
    * @return void
    */
   public function waiting_to_buy() {
@@ -449,6 +703,12 @@ class Alex implements \Serializable {
 
   } // end initial_purchase;
 
+  /**
+   * Handles the waiting to sell phase of the process
+   *
+   * @since 1.0.0
+   * @return void
+   */
   public function waiting_to_sell() {
 
     $this->display_status_title();
@@ -498,12 +758,13 @@ class Alex implements \Serializable {
 
   } // end initial_purchase;
 
-  public function console_with_time($message, $color) {
-
-    Console::log(sprintf('%s - %s', Carbon::now()->format('d-m-Y H:i:s'), $message), $color);
-
-  } // end console_with_time
-
+  /**
+   * Decides with color to use on the console, depending on the variation of prices
+   *
+   * @since 1.0.0
+   * @param float $variation
+   * @return void
+   */
   public function get_display_color_for_variation($variation) {
 
     if ($variation > 0) {
@@ -520,12 +781,27 @@ class Alex implements \Serializable {
 
   } // end get_display_color_for_variation;
 
+  /**
+   * Format a value
+   * TODO: move to helper class?
+   *
+   * @since 1.0.0
+   * @param float $number
+   * @return string
+   */
   public function format_value($number) {
 
     return 'R$ ' . number_format($number, 2, ',', '.');
 
   } // end format_values;
 
+  /**
+   * Fetch a new ticker object and compares it with the current one in memory
+   *
+   * @since 1.0.0
+   * @param array $compare Pair of stop points
+   * @return void
+   */
   public function fetch_and_compare($compare) {
 
     $new_value = $this->get_coin_value();
@@ -575,6 +851,14 @@ class Alex implements \Serializable {
 
   } // end fetch_and_compare;
 
+  /**
+   * Calculates the percentage difference between two values
+   *
+   * @since 1.0.0
+   * @param float $before
+   * @param float $after
+   * @return float
+   */
   public function get_percentage_difference($before, $after) {
 
     return (1 - $before / $after) * 100;
@@ -595,6 +879,12 @@ class Alex implements \Serializable {
 
   } // end get_current_value;
 
+  /**
+   * Tries to get the balance values from the platform
+   *
+   * @since 1.0.0
+   * @return void
+   */
   public function get_account_balance() {
 
     try {
@@ -609,6 +899,14 @@ class Alex implements \Serializable {
 
   } // end get_current_value;
 
+  /**
+   * Saves the current session to a file names last.session inside the sessions folder
+   * 
+   * This allow us to retrieve a session, if we use the "alex last" command
+   *
+   * @since 1.0.0
+   * @return void
+   */
   public function save_session() {
 
     $session_file = 'sessions/last.session';
@@ -623,17 +921,23 @@ class Alex implements \Serializable {
 
   } // end freeze_session;
 
+  /**
+   * Handles Alex shutdown on ctrl+c: saves the session to a file and say bye!
+   *
+   * @since 1.0.0
+   * @return void
+   */
   public function shutdown() {
 
     echo PHP_EOL;
 
-    Console::log('Salvando sessão atual...', 'light_blue');
+    Console::log('Alex: Salvando sessão atual... Você consegue recomeçar de onde parou usando alex.php last, viu?', 'light_green');
 
     $this->save_session();
 
-    echo PHP_EOL;
+    Console::log('Alex: Encerrando atividades...', 'light_green');
 
-    Console::log('Encerrando atividades...', 'light_blue');
+    Console::log('Alex: Tchau!', 'light_green');
 
     exit;
     
@@ -642,8 +946,11 @@ class Alex implements \Serializable {
 } // end class Alex;
 
 /**
- * Start the emission of the NFSEs
+ * Wake Alex up! Those cryptocurrencies won't buy/sell themselves!
+ * 
+ * Starts Alex up, instantiating a new class or trying to load up an old session
  *
+ * @since 1.0.0
  * @return void
  */
 function start_alex() {
@@ -651,16 +958,22 @@ function start_alex() {
   global $argv;
 
   /**
-   * Parse passed arguments
+   * Parse passed arguments via the CLI
    */
   parse_str(implode('&', array_slice($argv, 1)), $args);
 
+  /**
+   * Checks for the 'help' parameter. If present display the available parameters and their description
+   */
   if (isset($args['help'])) {
 
     return print_help();
 
   } // end if;
 
+  /**
+   * Checks for the 'last' parameter, if it is present, tries to retrieve the last session from file
+   */
   if (isset($args['last'])) {
 
     Console::log('Alex: Tentando carregar sessão anterior...', 'light_green');
@@ -687,22 +1000,34 @@ function start_alex() {
 
   } else {
 
-  $alex = Alex::create_instance(
-    @$args['coin'], 
-    @$args['platform'], 
-    @$args['live'], 
-    @$args['limit'], 
-    @$args['frequency'],
-    @$args['buy_at'],
-    @$args['sell_at']
-  );
+    /**
+     * Otherwise, we create a new instance using the parameters passed
+     */
+    $alex = Alex::create_instance(
+      @$args['coin'], 
+      @$args['platform'], 
+      @$args['live'], 
+      @$args['limit'], 
+      @$args['frequency'],
+      @$args['buy_at'],
+      @$args['sell_at']
+    );
 
   } // end if;
 
+  /**
+   * We run the bot, finally!
+   */
   $alex->run();
 
 } // end start_alex;
 
+/**
+ * Prints the help on the screen, explaining each of the parameters
+ *
+ * @since 1.0.0
+ * @return void
+ */
 function print_help() {
 
   Console::log('Eu sou Alex, o robo de trading!', 'light_green');

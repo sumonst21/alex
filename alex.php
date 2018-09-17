@@ -169,11 +169,11 @@ class Alex implements \Serializable {
    * @param boolean $sell_at
    * @return Alex
    */
-  public static function create_instance($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false) {
+  public static function create_instance($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0) {
 
     if (null === self::$instance) {
       
-      self::$instance = new self($coin, $platform, $live, $limit, $frequency, $buy_at, $sell_at);
+      self::$instance = new self($coin, $platform, $live, $limit, $frequency, $buy_at, $sell_at, $status);
 
     } // end if;
 
@@ -205,7 +205,7 @@ class Alex implements \Serializable {
    * @param boolean $buy_at    Comma-separeted list of stop points to buy
    * @param boolean $sell_at   Comma-separeted list of stop points to sell
    */
-  public function __construct($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false) {
+  public function __construct($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0) {
 
     /**
      * Coin
@@ -226,6 +226,11 @@ class Alex implements \Serializable {
      * Frequency of checking
      */
     $this->frequency = $frequency ?: 60;
+    
+    /**
+     * Set the initial status
+     */
+    $this->status = $status;
 
     /**
      * Expending Limit 
@@ -1010,7 +1015,8 @@ function start_alex() {
       @$args['limit'], 
       @$args['frequency'],
       @$args['buy_at'],
-      @$args['sell_at']
+      @$args['sell_at'],
+      @$args['status']
     );
 
   } // end if;
@@ -1045,6 +1051,7 @@ function print_help() {
     'platform'  => 'Muda a plataforma a ser utilizada para compras',
     'buy_at'    => 'Seta quando deve comprar',
     'sell_at'   => 'Seta quando deve vender',
+    'status'    => 'Diz pro Alex em que estado ele precisa começar',
     'last'      => 'Se presente, retoma a última session. Ignora todos os demais parâmetros',
   );
 

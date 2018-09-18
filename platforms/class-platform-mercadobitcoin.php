@@ -8,14 +8,14 @@ class Platform_Mercado_Bitcoin extends Platform {
   public $id = 'mercadobitcoin';
 
   public $title = 'Mercado Bitcoin';
+  
+  public $fee = 0.008;
 
   public $client;
 
   protected $api;
 
   protected $pair;
-
-  protected $fee = 0.008;
 
   public function init() {
 
@@ -45,11 +45,11 @@ class Platform_Mercado_Bitcoin extends Platform {
 
   } // end init;
 
-  public function api() {
+  public function format_value($value) {
 
-    
+    return number_format($value, 8, '.', '');
 
-  }
+  } // end format_value;
 
   public function dispatch($order) {
 
@@ -67,9 +67,11 @@ class Platform_Mercado_Bitcoin extends Platform {
 
   public function buy($order) {
 
+    $quantity = $this->apply_fee($order->quantity);
+
     $results = $this->api->placeBuyOrder(array(
       'coin_pair'   => $this->pair,
-      'quantity'    => number_format($order->quantity, 8, '.', ''),
+      'quantity'    => $this->format_value($quantity),
       'limit_price' => $order->limit_price,
     ));
 
@@ -85,11 +87,11 @@ class Platform_Mercado_Bitcoin extends Platform {
 
   public function sell($order) {
 
-    $quantity = $order->quantity * $this->fee;
+    $quantity = $this->apply_fee($order->quantity);
 
     $results = $this->api->placeSellOrder(array(
       'coin_pair'   => $this->pair,
-      'quantity'    => number_format($quantity, 8, '.', ''),
+      'quantity'    => $this->format_value($quantity),
       'limit_price' => $order->limit_price,
     ));
 
@@ -128,13 +130,23 @@ class Platform_Mercado_Bitcoin extends Platform {
 
   } // end get_coin_balance;
 
-  public function ticker() {
+  public function ticker($action) {
 
-    $res = $this->client->request('GET', "https://www.mercadobitcoin.net/api/$this->coin/ticker/");
+    $res = $this->client->request('GET', "https://www.mercadobitcoin.com.br/api/$this->coin/orderbook/");
 
     $results = json_decode($res->getBody());
 
-    return $results->ticker;
+    $list = $action == 'buy' ? 'asks' : 'bids';
+
+    $highest_value = $results->{$list}[0][0];
+
+    return (object) array(
+      "last" => $highest_value,
+      "high" => $highest_value,
+      "low"  => $highest_value,
+      "buy"  => $highest_value,
+      "sell" => $highest_value,
+    );
 
   } // end ticker;
 

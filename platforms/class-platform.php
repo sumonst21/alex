@@ -6,6 +6,8 @@ class Platform {
 
   public $title = 'Padrão (Simulador)';
 
+  public $fee = 0;
+
   public function __construct($coin = 'BTC') {
 
     $this->coin = $coin;
@@ -13,6 +15,12 @@ class Platform {
     $this->init();
 
   } // end construct;
+
+  public function apply_fees($value) {
+
+    return $value * (1 - $this->fee);
+
+  } // end apply_fees;
 
   public function dispatch($order) {
 
@@ -34,7 +42,7 @@ class Platform {
 
   } // end get_coin_balance;
 
-  public function ticker() {
+  public function ticker($coin_balance) {
 
   } // end ticker;
 

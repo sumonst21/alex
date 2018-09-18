@@ -86,7 +86,7 @@ class Platform_Default extends Platform {
 
   } // end get_coin_balance;
 
-  public function ticker() {
+  public function ticker($action) {
 
     // var_dump($this->get_random_values());
 

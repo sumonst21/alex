@@ -169,11 +169,11 @@ class Alex implements \Serializable {
    * @param boolean $sell_at
    * @return Alex
    */
-  public static function create_instance($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0) {
+  public static function create_instance($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0, $start = false) {
 
     if (null === self::$instance) {
       
-      self::$instance = new self($coin, $platform, $live, $limit, $frequency, $buy_at, $sell_at, $status);
+      self::$instance = new self($coin, $platform, $live, $limit, $frequency, $buy_at, $sell_at, $status, $start);
 
     } // end if;
 
@@ -205,7 +205,7 @@ class Alex implements \Serializable {
    * @param boolean $buy_at    Comma-separeted list of stop points to buy
    * @param boolean $sell_at   Comma-separeted list of stop points to sell
    */
-  public function __construct($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0) {
+  public function __construct($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0, $start = false) {
 
     /**
      * Coin
@@ -255,7 +255,7 @@ class Alex implements \Serializable {
     /**
      * Get the current Coin Value
      */
-    $this->current_value = $this->get_coin_value();
+    $this->current_value = is_numeric($start) ? $this->get_start_value($start) : $this->get_coin_value();
     $this->first_value   = $this->current_value;
 
     /**
@@ -264,6 +264,25 @@ class Alex implements \Serializable {
     $this->balance = $this->get_account_balance();
 
   } // end construct;
+
+  /**
+   * If you bought the coins at a specific value, use this to set it
+   *
+   * @since 1.0.0
+   * @param string $start
+   * @return object
+   */
+  public function get_start_value($start) {
+
+    return (object) array(
+      "last" => (float) $start,
+      "high" => (float) $start,
+      "low"  => (float) $start,
+      "buy"  => (float) $start,
+      "sell" => (float) $start,
+    );
+
+  } // end set_start_value;
 
   /**
    * Serialize the class so we can take it from where we left it off the last time
@@ -874,7 +893,12 @@ class Alex implements \Serializable {
 
     try {
 
-      return $this->platform->ticker();
+      $action = in_array($this->get_status(), [
+        self::STATUS_WAITING_BUY,
+        self::STATUS_INITIAL_BUY
+      ]) ? 'buy' : 'sell';
+
+      return $this->platform->ticker($action);
 
     } catch(Exception $e) {
 
@@ -1018,7 +1042,8 @@ function start_alex() {
       @$args['frequency'],
       @$args['buy_at'],
       @$args['sell_at'],
-      @$args['status']
+      @$args['status'],
+      @$args['start']
     );
 
   } // end if;
@@ -1067,6 +1092,7 @@ function print_help() {
     'platform'  => 'Muda a plataforma a ser utilizada para compras',
     'buy_at'    => 'Seta quando deve comprar',
     'sell_at'   => 'Seta quando deve vender',
+    'start'     => 'Preço da primeira compra',
     'status'    => 'Diz pro Alex em que estado ele precisa começar',
     'last'      => 'Se presente, retoma a última session de uma moeda. Ignora todos os demais parâmetros. Padrão: BTC',
   );

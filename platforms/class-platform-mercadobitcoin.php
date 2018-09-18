@@ -15,6 +15,8 @@ class Platform_Mercado_Bitcoin extends Platform {
 
   protected $pair;
 
+  protected $fee = 0.008;
+
   public function init() {
 
     /**
@@ -83,7 +85,7 @@ class Platform_Mercado_Bitcoin extends Platform {
 
   public function sell($order) {
 
-    $quantity = $order->quantity * 0.9;
+    $quantity = $order->quantity * $this->fee;
 
     $results = $this->api->placeSellOrder(array(
       'coin_pair'   => $this->pair,

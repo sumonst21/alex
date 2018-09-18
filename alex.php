@@ -914,7 +914,7 @@ class Alex implements \Serializable {
    */
   public function save_session() {
 
-    $session_file = 'sessions/last.session';
+    $session_file = get_session_filename($this->coin);
 
     $handle = fopen($session_file, 'w');
 
@@ -981,9 +981,11 @@ function start_alex() {
    */
   if (isset($args['last'])) {
 
+    $session_file = get_session_filename($args['last']);
+
     Console::log('Alex: Tentando carregar sessão anterior...', 'light_green');
 
-    if (!file_exists('./sessions/last.session')) {
+    if (!file_exists($session_file)) {
 
       Console::log('Falha ao carregar sessão anterior.', 'red');
 
@@ -991,7 +993,7 @@ function start_alex() {
 
     } // end if;
 
-    $session = file_get_contents('./sessions/last.session');
+    $session = file_get_contents($session_file);
 
     try {
 
@@ -1029,6 +1031,20 @@ function start_alex() {
 } // end start_alex;
 
 /**
+ * Gets the session filename for a given coin
+ *
+ * @param string $coin
+ * @return string
+ */
+function get_session_filename($coin = 'BTC') {
+
+  $coin = strtolower($coin);
+
+  return "./sessions/last.$coin.session";
+
+} // end get_session_filename;
+
+/**
  * Prints the help on the screen, explaining each of the parameters
  *
  * @since 1.0.0
@@ -1052,7 +1068,7 @@ function print_help() {
     'buy_at'    => 'Seta quando deve comprar',
     'sell_at'   => 'Seta quando deve vender',
     'status'    => 'Diz pro Alex em que estado ele precisa começar',
-    'last'      => 'Se presente, retoma a última session. Ignora todos os demais parâmetros',
+    'last'      => 'Se presente, retoma a última session de uma moeda. Ignora todos os demais parâmetros. Padrão: BTC',
   );
 
   foreach($params as $name => $desc) {

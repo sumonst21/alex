@@ -1,4 +1,4 @@
 vendor
-sessions/last.session
+sessions/*.session
 .env
 .previous-state

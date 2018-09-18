@@ -83,9 +83,11 @@ class Platform_Mercado_Bitcoin extends Platform {
 
   public function sell($order) {
 
+    $quantity = $order->quantity * 0.9;
+
     $results = $this->api->placeSellOrder(array(
       'coin_pair'   => $this->pair,
-      'quantity'    => number_format($order->quantity, 8, '.', ''),
+      'quantity'    => number_format($quantity, 8, '.', ''),
       'limit_price' => $order->limit_price,
     ));
 

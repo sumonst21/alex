@@ -13,6 +13,16 @@ require 'inc/class-alex-balance.php';
 
 use Carbon\Carbon;
 use GuzzleHttp\Client;
+use donatj\Pushover\Options;
+use donatj\Pushover\Priority;
+use donatj\Pushover\Pushover;
+use Symfony\Component\Dotenv\Dotenv;
+
+/**
+ * Allow us to use environment variables
+ */
+$dotenv = new Dotenv();
+$dotenv->load(__DIR__ . '/.env');
 
 /**
  * Tells PHP we want to catch CLI signals
@@ -92,6 +102,14 @@ class Alex implements \Serializable {
    * @var integer
    */
   public $frequency = 60;
+
+  /**
+   * Wether or not to send push notification ? 'Ligado' : 'Desligado' when an order is placed
+   *
+   * @since 1.0.0
+   * @var integer
+   */
+  public $notification = 1;
   
   /**
    * Holds the current status of the bot. The different statuses tell which actions should be run inside the run_routines method
@@ -169,11 +187,11 @@ class Alex implements \Serializable {
    * @param boolean $sell_at
    * @return Alex
    */
-  public static function create_instance($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0, $start = false) {
+  public static function create_instance($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0, $start = false, $notification=1) {
 
     if (null === self::$instance) {
       
-      self::$instance = new self($coin, $platform, $live, $limit, $frequency, $buy_at, $sell_at, $status, $start);
+      self::$instance = new self($coin, $platform, $live, $limit, $frequency, $buy_at, $sell_at, $status, $start, $notification);
 
     } // end if;
 
@@ -205,7 +223,7 @@ class Alex implements \Serializable {
    * @param boolean $buy_at    Comma-separeted list of stop points to buy
    * @param boolean $sell_at   Comma-separeted list of stop points to sell
    */
-  public function __construct($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0, $start = false) {
+  public function __construct($coin = 'BTC', $platform = 'default', $live = 0, $limit = false, $frequency = 60, $buy_at = false, $sell_at = false, $status = 0, $start = false, $notification=1) {
 
     /**
      * Coin
@@ -251,6 +269,12 @@ class Alex implements \Serializable {
       $this->sell_at = $this->get_stop_array($sell_at);
 
     } // end buy_at;
+
+    if (is_numeric($notification)) {
+
+      $this->notification = $notification;
+
+    } // end notification;
 
     /**
      * Get the current Coin Value
@@ -439,6 +463,8 @@ class Alex implements \Serializable {
     Console::log(sprintf('Sell: %s', implode(', ', $this->sell_at)), 'light_green');
     
     Console::log(sprintf('Frequência: %s segundos', $this->frequency), 'light_green');
+    
+    Console::log(sprintf('Notificações: %s', $this->notification ? 'Ligado' : 'Desligado'), 'light_green');
 
     Console::log(sprintf('Plataforma: %s', $this->platform->title), 'light_green');
 
@@ -644,6 +670,34 @@ class Alex implements \Serializable {
   } // end build_order;
 
   /**
+   * Sends a push notification to my device
+   *
+   * @since 1.0.0
+   * @param Alex_Order $order
+   * @return void
+   */
+  public function send_order_notification($order) {
+
+    if (!$order) return;
+
+    /**
+     * Checks if the user wants notification ? 'Ligado' : 'Desligado'
+     */
+    if (!$this->notification) return;
+
+    $push = new Pushover(getenv('PUSHOVER_API_KEY'), getenv('PUSHOVER_USER_KEY'));
+
+    $send = $push->send($order->message, [
+      Options::TITLE => sprintf('Ordem de %s - %s', $order->action, $this->coin),
+    ]);
+
+    $message = $send ? 'Notificação de ordem enviada' : 'Erro ao enviar notificação';
+
+    $this->console_with_time($message, 'cyan');
+
+  } // end send_order_notification;
+
+  /**
    * Takes in an order object and sends it over to the platform to handle it, if live mode is on
    *
    * @since 1.0.0
@@ -657,6 +711,8 @@ class Alex implements \Serializable {
       $this->console_with_time(sprintf('Enviando ordem para plataforma %s', $this->platform->title), 'light_purple');
       
       $results = $this->platform->dispatch($order);
+
+      $this->send_order_notification($order);
 
       return true;
 
@@ -1043,7 +1099,8 @@ function start_alex() {
       @$args['buy_at'],
       @$args['sell_at'],
       @$args['status'],
-      @$args['start']
+      @$args['start'],
+      @$args['notification']
     );
 
   } // end if;
@@ -1084,17 +1141,18 @@ function print_help() {
   Console::log('Parâmetros disponíveis:', 'light_green');
 
   $params = array(
-    'help'      => 'Mostra ajuda sobre os parâmetros de configuração',
-    'coin'      => 'Seleciona que moeda deve ser utilizada. Padrão: BTC',
-    'limit'     => 'Valor maximo em reais a ser utilizado',
-    'live'      => 'Seleciona que ambiente deve ser usado, simulação ou real. Padrão: Simulação (0)',
-    'frequency' => 'Muda com que frequência o Ticker deve ser checado. Padrão: 60 segundos',
-    'platform'  => 'Muda a plataforma a ser utilizada para compras',
-    'buy_at'    => 'Seta quando deve comprar',
-    'sell_at'   => 'Seta quando deve vender',
-    'start'     => 'Preço da primeira compra',
-    'status'    => 'Diz pro Alex em que estado ele precisa começar',
-    'last'      => 'Se presente, retoma a última session de uma moeda. Ignora todos os demais parâmetros. Padrão: BTC',
+    'help'         => 'Mostra ajuda sobre os parâmetros de configuração',
+    'coin'         => 'Seleciona que moeda deve ser utilizada. Padrão: BTC',
+    'limit'        => 'Valor maximo em reais a ser utilizado',
+    'live'         => 'Seleciona que ambiente deve ser usado, simulação ou real. Padrão: Simulação (0)',
+    'frequency'    => 'Muda com que frequência o Ticker deve ser checado. Padrão: 60 segundos',
+    'platform'     => 'Muda a plataforma a ser utilizada para compras',
+    'buy_at'       => 'Seta quando deve comprar',
+    'sell_at'      => 'Seta quando deve vender',
+    'start'        => 'Preço da primeira compra',
+    'status'       => 'Diz pro Alex em que estado ele precisa começar',
+    'notification' => 'Se você deseja receber notificações quando uma ordem é executada. Padrão: 1',
+    'last'         => 'Se presente, retoma a última session de uma moeda. Ignora todos os demais parâmetros. Padrão: BTC',
   );
 
   foreach($params as $name => $desc) {

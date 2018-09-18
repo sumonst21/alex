@@ -4,8 +4,54 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "e5ca8b4e4aa7551e5531f3fc2f0ed096",
+    "content-hash": "7771ecb0b6044a4e7a723fbfbdeff2bb",
     "packages": [
+        {
+            "name": "donatj/pushover",
+            "version": "v2.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/donatj/Pushover-PHP.git",
+                "reference": "a6a62d67648acfc942cc7194cae69f68ea879e6b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/donatj/Pushover-PHP/zipball/a6a62d67648acfc942cc7194cae69f68ea879e6b",
+                "reference": "a6a62d67648acfc942cc7194cae69f68ea879e6b",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.4.0"
+            },
+            "require-dev": {
+                "donatj/mock-webserver": "^0.2.0",
+                "phpunit/phpunit": "4.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "donatj\\Pushover\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Jesse G. Donat",
+                    "email": "donatj@gmail.com",
+                    "homepage": "http://donatstudios.com",
+                    "role": "Developer"
+                }
+            ],
+            "description": "A very simple Pushover.net client",
+            "keywords": [
+                "pushover",
+                "pushover.net"
+            ],
+            "time": "2017-06-13T04:41:42+00:00"
+        },
         {
             "name": "guzzlehttp/guzzle",
             "version": "6.3.3",

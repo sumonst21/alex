@@ -1,7 +1,6 @@
 <?php
 
 use GuzzleHttp\Client;
-use Symfony\Component\Dotenv\Dotenv;
 
 class Platform_Mercado_Bitcoin extends Platform {
 
@@ -18,12 +17,6 @@ class Platform_Mercado_Bitcoin extends Platform {
   protected $pair;
 
   public function init() {
-
-    /**
-     * Allow us to use environment variables
-     */
-    $dotenv = new Dotenv();
-    $dotenv->load(__DIR__ . '/../.env');
 
     /**
      * Creates the HTTP client for future requests

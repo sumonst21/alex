@@ -8,7 +8,7 @@ class Platform_Mercado_Bitcoin extends Platform {
 
   public $title = 'Mercado Bitcoin';
   
-  public $fee = 0.008;
+  public $fee = 0.08;
 
   public $client;
 

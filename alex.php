@@ -594,6 +594,11 @@ class Alex implements \Serializable {
   public function run_routines() {
 
     /**
+     * Get Account Balance
+     */
+    $this->balance = $this->get_account_balance();
+
+    /**
      * Check the current status
      */
     switch ($this->get_status()) {
@@ -759,11 +764,9 @@ class Alex implements \Serializable {
       if ($success) {
 
         /**
-         * TODO: Refetch balance
+         * Get Account Balance
          */
-        $this->balance->add_coin('brl', $order->order_price);
-        
-        $this->balance->add_coin(strtolower($this->coin), $order->quantity);
+        $this->balance = $this->get_account_balance();
 
         $this->console_with_time(sprintf('|- Nova Balança: %s', $this->format_value($this->balance->get_coin('brl')->available)), 'light_purple');
 
@@ -814,11 +817,9 @@ class Alex implements \Serializable {
       if ($success) {
 
         /**
-         * TODO: Refetch balance
+         * Get Account Balance
          */
-        $this->balance->add_coin('brl', $order->order_price);
-        
-        $this->balance->remove_coin(strtolower($this->coin), $order->quantity);
+        $this->balance = $this->get_account_balance();
 
         $this->console_with_time(sprintf('|- Nova Balança: %s', $this->format_value($this->balance->get_coin('brl')->available)), 'light_purple');
 

@@ -594,11 +594,6 @@ class Alex implements \Serializable {
   public function run_routines() {
 
     /**
-     * Get Account Balance
-     */
-    $this->balance = $this->get_account_balance();
-
-    /**
      * Check the current status
      */
     switch ($this->get_status()) {
